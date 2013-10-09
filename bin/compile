@@ -6,15 +6,14 @@ set -eo pipefail
 mkdir -p "$1" "$2"
 build=$(cd "$1/" && pwd)
 cache=$(cd "$2/" && pwd)
-ver=${GOVERSION:-1.1.2}
-file=${GOFILE:-go$ver.$(uname|tr A-Z a-z)-amd64.tar.gz}
+go_ver=${GOVERSION:-1.1.2}
+file=${GOFILE:-go$go_ver.$(uname|tr A-Z a-z)-amd64.tar.gz}
 url=${GOURL:-http://go.googlecode.com/files/$file}
 buildpack=$(dirname $(dirname $0))
-arch=$(uname -m|tr A-Z a-z)
-if test $arch = x86_64
-then arch=amd64
-fi
-plat=$(uname|tr A-Z a-z)-$arch
+mkdir -p $build/vendor/bin
+
+BIN_S3_BUCKET="https://s3.amazonaws.com/rjoc-heroku"
+HG_VERSION="2.5.2"
 
 if test -e $build/bin && ! test -d $build/bin
 then
@@ -22,49 +21,26 @@ then
   exit 1
 fi
 
-# Python
-venv=$cache/venv
-mkdir -p $cache/pip
-python=python2.7
-PATH=$buildpack/$plat/bin:$venv/bin:$PATH
-
-virtualenv() {
-  python "$buildpack/vendor/virtualenv-1.7/virtualenv.py" "$@"
-}
-
-# Virtualenv, Mercurial, Bazaar
-if ! (which hg > /dev/null && which bzr > /dev/null)
-then
-  echo -n "-----> Installing Virtualenv..."
-  virtualenv --python $python --distribute --never-download --prompt='(venv) ' $venv > /dev/null 2>&1
-  . $venv/bin/activate > /dev/null 2>&1
-  echo " done"
-  
-  echo -n "-----> Installing Mercurial..."
-  pip install mercurial > /dev/null 2>&1
-  echo " done"
-  
-  echo -n "-----> Installing Bazaar..."
-  pip install bzr > /dev/null 2>&1
-  echo " done"
-fi
+#  Mercurial, Bazaar
+echo -n "-----> Installing Mercurial v${HG_VERSION}..."
+curl --silent --max-time 60 --location $BIN_S3_BUCKET/mercurial-$HG_VERSION.tgz | tar xz --strip=1 -C $build/vendor/bin
+echo " done"
 
 if test -d $build/vendor/bin/go
 then
-  echo "-----> Using Go $ver"
+  echo "-----> Using Go $go_ver"
 else
-  mkdir -p $build/vendor/bin
   rm -rf $cache/* # be sure not to build up cruft
-  mkdir -p $cache/go-$ver
-  cd $cache/go-$ver
-  echo -n "-----> Installing Go $ver..."
+  mkdir -p $cache/go-$go_ver
+  cd $cache/go-$go_ver
+  echo -n "-----> Installing Go v$go_ver..."
   curl -sO $url
   tar zxf $file
   rm -f $file
-  chmod +x $cache/go-$ver/go/bin/*
-  mv $cache/go-$ver/go/bin/* $build/vendor/bin
+  chmod +x $cache/go-$go_ver/go/bin/*
+  mv $cache/go-$go_ver/go/bin/* $build/vendor/bin
   PATH=$build/vendor/bin:$PATH
-  echo -e " done\n       `go version`"
+  echo -e " done"
 fi
 
 mkdir -p $build/.profile.d
