@@ -22,10 +22,11 @@ then
     exit 1
 fi
 
-if test -d $cache/go-$ver/go
+if test -d $build/vendor/bin/go
 then
     echo "-----> Using Go $ver"
 else
+    mkdir -p $build/vendor/bin
     rm -rf $cache/* # be sure not to build up cruft
     mkdir -p $cache/go-$ver
     cd $cache/go-$ver
@@ -33,7 +34,10 @@ else
     curl -sO $url
     tar zxf $file
     rm -f $file
-    chmod +x $cache/go-$ver/*
-    mv $cache/go-$ver/* $build/bin
+    chmod +x $cache/go-$ver/bin/*
+    mv $cache/go-$ver/bin/* $build/vendor/bin
     echo " done"
 fi
+
+mkdir -p $build/.profile.d
+echo 'PATH=$PATH:$HOME/vendor/bin' > $build/.profile.d/go.sh
