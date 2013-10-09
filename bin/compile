@@ -16,26 +16,6 @@ then arch=amd64
 fi
 plat=$(uname|tr A-Z a-z)-$arch
 
-# Python
-venv=$cache/venv
-mkdir -p $cache/pip
-python=python2.7
-PATH=$buildpack/$plat/bin:$venv/bin:$PATH
-
-virtualenv() {
-    python "$buildpack/vendor/virtualenv-1.7/virtualenv.py" "$@"
-}
-
-if test -f $build/Godeps
-then name=$(<$build/Godeps jq -r .ImportPath)
-elif test -f $build/.godir
-then name=$(cat $build/.godir)
-else
-    echo >&2 " !     A .godir is required. For instructions:"
-    echo >&2 " !     http://mmcgrana.github.io/2012/09/getting-started-with-go-on-heroku"
-    exit 1
-fi
-
 if test -e $build/bin && ! test -d $build/bin
 then
     echo >&2 " !     File bin exists and is not a directory."
@@ -53,48 +33,7 @@ else
     curl -sO $url
     tar zxf $file
     rm -f $file
+    chmod +x $cache/go-$ver/*
+    mv $cache/go-$ver/* $build/bin
     echo " done"
 fi
-
-GOROOT=$cache/go-$ver/go export GOROOT
-GOPATH=$build/.heroku/g export GOPATH
-PATH=$GOROOT/bin:$PATH
-
-
-if ! (which hg > /dev/null && which bzr > /dev/null)
-then
-    echo -n "       Installing Virtualenv..."
-    virtualenv --python $python --distribute --never-download --prompt='(venv) ' $venv > /dev/null 2>&1
-    . $venv/bin/activate > /dev/null 2>&1
-    echo " done"
-
-    echo -n "       Installing Mercurial..."
-    pip install mercurial > /dev/null 2>&1
-    echo " done"
-
-    echo -n "       Installing Bazaar..."
-    pip install bzr > /dev/null 2>&1
-    echo " done"
-fi
-
-p=$GOPATH/src/$name
-mkdir -p $p
-cp -R $build/* $p
-
-unset GIT_DIR # unset git dir or it will mess with goinstall
-cd $p
-if test -f $build/Godeps
-then
-    echo "-----> Running: godep go get -tags heroku ./..."
-    godep go get -tags heroku ./...
-else
-    echo "-----> Running: go get -tags heroku ./..."
-    go get -tags heroku ./...
-fi
-
-mkdir -p $build/bin
-mv $GOPATH/bin/* $build/bin
-rm -rf $build/.heroku
-
-mkdir -p $build/.profile.d
-echo 'PATH=$PATH:$HOME/bin' > $build/.profile.d/go.sh
