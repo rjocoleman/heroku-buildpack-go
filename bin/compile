@@ -18,26 +18,53 @@ plat=$(uname|tr A-Z a-z)-$arch
 
 if test -e $build/bin && ! test -d $build/bin
 then
-    echo >&2 " !     File bin exists and is not a directory."
-    exit 1
+  echo >&2 " !     File bin exists and is not a directory."
+  exit 1
+fi
+
+# Python
+venv=$cache/venv
+mkdir -p $cache/pip
+python=python2.7
+PATH=$buildpack/$plat/bin:$venv/bin:$PATH
+
+virtualenv() {
+  python "$buildpack/vendor/virtualenv-1.7/virtualenv.py" "$@"
+}
+
+# Virtualenv, Mercurial, Bazaar
+if ! (which hg > /dev/null && which bzr > /dev/null)
+then
+  echo -n "-----> Installing Virtualenv..."
+  virtualenv --python $python --distribute --never-download --prompt='(venv) ' $venv > /dev/null 2>&1
+  . $venv/bin/activate > /dev/null 2>&1
+  echo " done"
+  
+  echo -n "-----> Installing Mercurial..."
+  pip install mercurial > /dev/null 2>&1
+  echo " done"
+  
+  echo -n "-----> Installing Bazaar..."
+  pip install bzr > /dev/null 2>&1
+  echo " done"
 fi
 
 if test -d $build/vendor/bin/go
 then
-    echo "-----> Using Go $ver"
+  echo "-----> Using Go $ver"
 else
-    mkdir -p $build/vendor/bin
-    rm -rf $cache/* # be sure not to build up cruft
-    mkdir -p $cache/go-$ver
-    cd $cache/go-$ver
-    echo -n "-----> Installing Go $ver..."
-    curl -sO $url
-    tar zxf $file
-    rm -f $file
-    chmod +x $cache/go-$ver/go/bin/*
-    mv $cache/go-$ver/go/bin/* $build/vendor/bin
-    PATH=$build/vendor/bin:$PATH
-    echo -e "\n       `go version` installed"
+  mkdir -p $build/vendor/bin
+  rm -rf $cache/* # be sure not to build up cruft
+  mkdir -p $cache/go-$ver
+  cd $cache/go-$ver
+  echo -n "-----> Installing Go $ver..."
+  curl -sO $url
+  tar zxf $file
+  rm -f $file
+  chmod +x $cache/go-$ver/go/bin/*
+  mv $cache/go-$ver/go/bin/* $build/vendor/bin
+  PATH=$build/vendor/bin:$PATH
+  echo -e " done\n       `go version`"
 fi
 
 mkdir -p $build/.profile.d
