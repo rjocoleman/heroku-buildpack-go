@@ -34,9 +34,10 @@ else
     curl -sO $url
     tar zxf $file
     rm -f $file
-    chmod +x $cache/go-$ver/bin/*
-    mv $cache/go-$ver/bin/* $build/vendor/bin
-    echo " done"
+    chmod +x $cache/go-$ver/go/bin/*
+    mv $cache/go-$ver/go/bin/* $build/vendor/bin
+    PATH=$build/vendor/bin:$PATH
+    echo -e "\n       `go version` installed"
 fi
 
 mkdir -p $build/.profile.d
